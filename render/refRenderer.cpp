@@ -1,3 +1,6 @@
+// refRenderer.cpp
+// a sequential, single-threaded C++ reference implementation
+
 #include <algorithm>
 #include <math.h>
 #include <stdio.h>
@@ -158,96 +161,96 @@ RefRenderer::advanceAnimation() {
     } else if (sceneName == BOUNCING_BALLS) {
         const float dt = 1.f / 60.f;
         const float kGravity = -2.8f; // sorry Newton
-        const float kDragCoeff = -0.8f; 
-        const float epsilon = 0.001f; 
+        const float kDragCoeff = -0.8f;
+        const float epsilon = 0.001f;
 
         for (int i=0; i<numCircles; i++) {
             int index3 = 3 * i;
 
             // reverse velocity if center position < 0
-            float oldVelocity = velocity[index3+1]; 
-            float oldPosition = position[index3+1]; 
+            float oldVelocity = velocity[index3+1];
+            float oldPosition = position[index3+1];
 
-            if (oldVelocity == 0.f && oldPosition == 0.f) { // stop-condition 
-                continue; 
+            if (oldVelocity == 0.f && oldPosition == 0.f) { // stop-condition
+                continue;
             }
 
-            if (position[index3+1] < 0 && oldVelocity < 0.f) { // bounce ball 
-                velocity[index3+1] *= kDragCoeff; 
+            if (position[index3+1] < 0 && oldVelocity < 0.f) { // bounce ball
+                velocity[index3+1] *= kDragCoeff;
             }
 
             // update velocity: v = u + at (only along y-axis)
-            velocity[index3+1] += kGravity * dt; 
+            velocity[index3+1] += kGravity * dt;
 
             // update positions (only along y-axis)
             position[index3+1] += velocity[index3+1] * dt;
 
-            if (fabsf(velocity[index3+1] - oldVelocity) < epsilon 
-                    && oldPosition < 0.0f 
-                    && fabsf(position[index3+1]-oldPosition) < epsilon) { // stop ball 
-                velocity[index3+1] = 0.f; 
-                position[index3+1] = 0.f; 
-            } 
+            if (fabsf(velocity[index3+1] - oldVelocity) < epsilon
+                    && oldPosition < 0.0f
+                    && fabsf(position[index3+1]-oldPosition) < epsilon) { // stop ball
+                velocity[index3+1] = 0.f;
+                position[index3+1] = 0.f;
+            }
         }
-    } else if (sceneName == HYPNOSIS) { 
-        float cutOff = 0.5f;  
-        for (int i = 0; i < numCircles; i++) { // update radius 
-            // place circle back in center after reaching threshold radisus 
-            if (radius[i] > cutOff) { 
-                radius[i] = 0.02f; 
-            } else { 
-                radius[i] += 0.01f; 
+    } else if (sceneName == HYPNOSIS) {
+        float cutOff = 0.5f;
+        for (int i = 0; i < numCircles; i++) { // update radius
+            // place circle back in center after reaching threshold radisus
+            if (radius[i] > cutOff) {
+                radius[i] = 0.02f;
+            } else {
+                radius[i] += 0.01f;
             }
         }
     } else if (sceneName == FIREWORKS) {
         const float dt = 1.f / 60.f;
         const float pi = 3.14159;
-        const float maxDist = 0.25f; 
+        const float maxDist = 0.25f;
 
-        for (int i = 0; i < NUM_FIREWORKS; i++) { 
+        for (int i = 0; i < NUM_FIREWORKS; i++) {
             int index3i = 3 * i;
             // fire-work center
-            float cx = position[index3i]; 
-            float cy = position[index3i+1]; 
-            for (int j = 0; j < NUM_SPARKS; j++) { 
+            float cx = position[index3i];
+            float cy = position[index3i+1];
+            for (int j = 0; j < NUM_SPARKS; j++) {
                 int sIdx = NUM_FIREWORKS + i * NUM_SPARKS + j;
                 int index3j = 3 * sIdx;
-                
+
                 // update position
-                position[index3j] += velocity[index3j] * dt;  
-                position[index3j+1] += velocity[index3j+1] * dt; 
+                position[index3j] += velocity[index3j] * dt;
+                position[index3j+1] += velocity[index3j+1] * dt;
 
                 // fire-work sparks
-                float sx = position[index3j]; 
+                float sx = position[index3j];
                 float sy = position[index3j+1];
 
                 // compute vector from firework-spark
-                float cxsx = sx - cx; 
+                float cxsx = sx - cx;
                 float cysy = sy - cy;
-    
-                // compute distance from fire-work 
+
+                // compute distance from fire-work
                 float dist = sqrt(cxsx * cxsx + cysy * cysy);
-                if (dist > maxDist) { // restore to starting position 
+                if (dist > maxDist) { // restore to starting position
                     // random starting position on fire-work's rim
                     float angle = (j * 2 * pi)/NUM_SPARKS;
-                    float sinA = sin(angle); 
-                    float cosA = cos(angle); 
-                    float x = cosA * radius[i]; 
-                    float y = sinA * radius[i]; 
+                    float sinA = sin(angle);
+                    float cosA = cos(angle);
+                    float x = cosA * radius[i];
+                    float y = sinA * radius[i];
 
-                    position[index3j] = position[index3i] + x;  
-                    position[index3j+1] = position[index3i+1] + y;  
-                    position[index3j+2] = 0.0f; 
+                    position[index3j] = position[index3i] + x;
+                    position[index3j+1] = position[index3i+1] + y;
+                    position[index3j+2] = 0.0f;
 
-                    // travel scaled unit length 
-                    velocity[index3j] = cosA/5.0;  
-                    velocity[index3j+1] = sinA/5.0; 
-                    velocity[index3j+2] = 0.0f;  
-                } 
+                    // travel scaled unit length
+                    velocity[index3j] = cosA/5.0;
+                    velocity[index3j+1] = sinA/5.0;
+                    velocity[index3j+2] = 0.0f;
+                }
             }
-        } 
+        }
 
-    } 
+    }
 }
 
 static inline void
