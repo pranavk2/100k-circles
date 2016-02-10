@@ -426,15 +426,18 @@ __global__ void kernelRenderPixels() {
     float boxB = invHeight * static_cast<float>(maxY-1);
 
 
-
-    __shared__ int A[100];
+    const int arraySize = 2048;
+    __shared__ int A[arraySize];
     __shared__ int K;
-    K = 0;
+    __shared__ int firstUnChecked;
+    firstUnChecked = 0;
 
     // for all pixels in the bonding box
+    kernelWork:
+    K = 0;
     if (threadIdx.x == 0 && threadIdx.y == 0) {
 
-        for (int i=0; i < numCircles; i++) {
+        for (int i=firstUnChecked; i < numCircles; i++) {
             // p : circle position
             float3 p = *(float3*)&(cuConstRendererParams.position[3 * i]);
             float radius = cuConstRendererParams.radius[i];
@@ -442,6 +445,13 @@ __global__ void kernelRenderPixels() {
                 p.x, p.y, radius, boxL, boxR, boxB, boxT)) {
                 A[K] = i;
                 K++;
+                if (K >= arraySize){
+                    firstUnChecked = i+1;
+                    break;
+                }
+            }
+            if (i == numCircles - 1){
+                firstUnChecked = numCircles;
             }
         }
     }
@@ -452,6 +462,12 @@ __global__ void kernelRenderPixels() {
         float3 p = *(float3*)&(cuConstRendererParams.position[3 * A[i]]);
         shadePixel(A[i], pixelCenterNorm, p, imgPtr);
     }
+
+    __syncthreads();
+    if(firstUnChecked < numCircles){
+        goto kernelWork;    
+    }
+
 
 
     // for (int i=0; i < numCircles; i++) {
