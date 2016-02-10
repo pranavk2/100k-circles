@@ -15,6 +15,7 @@
 #include "util.h"
 
 #include "circleBoxTest.cu_inl"
+#include "exclusiveScan.cu_inl"
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Putting all the cuda kernels here
@@ -398,10 +399,8 @@ __global__ void kernelRenderPixels() {
 
     int minX = blockIdx.x * blockDim.x; // inclusive
     int minY = blockIdx.y * blockDim.y; // inclusive
-    int maxX = min(imageWidth,
-                   (blockIdx.x + 1) * blockDim.x); // exclusive
-    int maxY = min(imageHeight,
-                   (blockIdx.y + 1) * blockDim.y); // exclusive
+    int maxX = max(imageWidth,(blockIdx.x + 1) * blockDim.x); // exclusive
+    int maxY = max(imageHeight,(blockIdx.y + 1) * blockDim.y); // exclusive
 
     // __share__
     int pixelX = minX + threadIdx.x;
@@ -419,69 +418,72 @@ __global__ void kernelRenderPixels() {
 
     float4* imgPtr = (float4*)(&cuConstRendererParams.imageData[4 * (pixelY * imageWidth + pixelX)]);
 
-
     float boxL = invWidth * static_cast<float>(minX);
     float boxR = invWidth * static_cast<float>(maxX-1);
     float boxT = invHeight * static_cast<float>(minY);
     float boxB = invHeight * static_cast<float>(maxY-1);
 
 
-    const int arraySize = 2048;
-    __shared__ int A[arraySize];
-    __shared__ int K;
-    __shared__ int firstUnChecked;
-    firstUnChecked = 0;
+    __shared__ uint A[256]; // 0/1 array
+    __shared__ float3 B[256]; // circle positions
+    __shared__ uint C[256]; // scanned result
+    __shared__ uint scratch[512];
+    __shared__ uint goodCircles[256]; // local circle indices (each between 0 ~ 255)
 
-    // for all pixels in the bonding box
-    kernelWork:
-    K = 0;
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
+    int idx = threadIdx.y * 16 + threadIdx.x; // 0 ~ 255
 
-        for (int i=firstUnChecked; i < numCircles; i++) {
-            // p : circle position
-            float3 p = *(float3*)&(cuConstRendererParams.position[3 * i]);
-            float radius = cuConstRendererParams.radius[i];
-            if (circleInBoxConservative(
-                p.x, p.y, radius, boxL, boxR, boxB, boxT)) {
-                A[K] = i;
-                K++;
-                if (K >= arraySize){
-                    firstUnChecked = i+1;
-                    break;
-                }
-            }
-            if (i == numCircles - 1){
-                firstUnChecked = numCircles;
+    for (int k=0; k < numCircles; k += 256) {
+
+        A[idx] = 0;
+
+        if (idx+k < numCircles) {
+            // for circle idx+k
+            float3 p = *(float3*)&(cuConstRendererParams.position[3 * (idx+k)]);
+            float radius = cuConstRendererParams.radius[idx+k];
+            if (circleInBoxConservative(p.x, p.y, radius, boxL, boxR, boxB, boxT)) {
+                A[idx] = 1;
+                B[idx] = p;
             }
         }
+        __syncthreads(); //  A set
+
+        sharedMemExclusiveScan(idx, A, C, scratch, 256);
+
+        __syncthreads(); //  A set
+
+        if (idx < 255 && C[idx] != C[idx+1]) {
+            goodCircles[C[idx]] = idx;
+        } else if (idx == 255 && A[255] == 1) {
+            goodCircles[C[idx]] = 255;
+        }
+        __syncthreads(); //  A set
+
+        for (int i=0; i < C[255]+A[255]; i++) {
+            float3 p = B[goodCircles[i]];
+            shadePixel(goodCircles[i] + k, pixelCenterNorm, p, imgPtr);
+        }
+
+        __syncthreads();
+
     }
-    __syncthreads();
 
-
-    for (int i=0; i < K; i++) {
-        float3 p = *(float3*)&(cuConstRendererParams.position[3 * A[i]]);
-        shadePixel(A[i], pixelCenterNorm, p, imgPtr);
-    }
-
-    __syncthreads();
-    if(firstUnChecked < numCircles){
-        goto kernelWork;    
-    }
-
-
-
-    // for (int i=0; i < numCircles; i++) {
-    //     float3 p = *(float3*)&(cuConstRendererParams.position[3 * i]);
-    //     float radius = cuConstRendererParams.radius[i];
-    //
-    //
-    //     // p : circle position
-    //     if (circleInBoxConservative(
-    //         p.x, p.y, radius, boxL, boxR, boxB, boxT)) {
-    //         shadePixel(i, pixelCenterNorm, p, imgPtr);
-    //     }
-    // }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -717,7 +719,6 @@ CudaRenderer::advanceAnimation() {
 void
 CudaRenderer::render() {
 
-
     int imageWidth = image->width;
     int imageHeight = image->height;
 
@@ -726,13 +727,6 @@ CudaRenderer::render() {
     printf("imageWidth = %d\n", imageWidth);
     printf("imageHeight = %d\n", imageHeight);
     printf("numPixels = %d\n", numPixels);
-
-
-    // pixels per block = 16 * 16
-    // int threadsPerBlock = blockDim.x * blockDim.y;
-
-    // numBlocks : (768 * 768) / (16 * 16) blocks
-    // int numBlocks = (numPixels + threadsPerBlock - 1) / threadsPerBlock;
 
     // threadsPerBlock : 256 threads per block is a healthy number
     dim3 blockDim(16, 16, 1);

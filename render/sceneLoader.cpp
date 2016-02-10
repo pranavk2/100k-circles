@@ -211,109 +211,109 @@ loadCircleScene(
 
     }else if (sceneName == BOUNCING_BALLS) {
         srand(0);
-        numCircles = 10;   
-        position = new float[3 * numCircles]; 
+        numCircles = 10;
         position = new float[3 * numCircles];
-        velocity = new float[3 * numCircles];  
-        color = new float[3 * numCircles]; 
-        radius = new float[numCircles]; 
+        position = new float[3 * numCircles];
+        velocity = new float[3 * numCircles];
+        color = new float[3 * numCircles];
+        radius = new float[numCircles];
 
-        for (int i = 0; i < numCircles; i++) { 
-            int index3 = 3 * i; 
-            radius[i] = .05f; 
+        for (int i = 0; i < numCircles; i++) {
+            int index3 = 3 * i;
+            radius[i] = .05f;
 
-            position[index3] = randomFloat(); 
+            position[index3] = randomFloat();
             position[index3+1] = randomFloat();
-            position[index3+2] = randomFloat(); 
+            position[index3+2] = randomFloat();
 
             color[index3] = 0.f;
             color[index3+1] = 0.f;
             color[index3+2] = 0.f;
             if (i % 3 == 0) color[index3] = 1.f;
-            if (i % 3 == 1) color[index3+1] = 1.f; 
-            if (i % 3 == 2) color[index3+2] = 1.f; 
+            if (i % 3 == 1) color[index3+1] = 1.f;
+            if (i % 3 == 2) color[index3+2] = 1.f;
 
-            velocity[index3] = 0.f; 
-            velocity[index3+1] = randomFloat(); 
+            velocity[index3] = 0.f;
+            velocity[index3+1] = randomFloat();
             velocity[index3+2] = 0.f;
         }
     } else if (sceneName == HYPNOSIS) {
-        srand(0);  
-        numCircles = 25; 
-        position = new float[3 * numCircles]; 
-        color = new float[3 * numCircles]; 
+        srand(0);
+        numCircles = 25;
+        position = new float[3 * numCircles];
+        color = new float[3 * numCircles];
         radius = new float[numCircles];
         velocity = new float[3 * numCircles];
-        float width = 0.02f;  
+        float width = 0.02f;
 
-        for (int i = 0; i < numCircles; i++) { 
-            int index3 = 3 * i; 
+        for (int i = 0; i < numCircles; i++) {
+            int index3 = 3 * i;
             position[index3] = position[index3+1] = .5f;
             position[index3+2] = .0f;
 
             // increasing radius
-            radius[i] = 0.02f + (i * width);  
+            radius[i] = 0.02f + (i * width);
 
-            color[index3] = randomFloat(); 
+            color[index3] = randomFloat();
             color[index3+1] = randomFloat();
             color[index3+2] = randomFloat();
 
             velocity[index3] = 0.0f;
             velocity[index3+1] = 0.0f;
-            velocity[index3+2] = 0.0f; 
+            velocity[index3+2] = 0.0f;
         }
     } else if (sceneName == FIREWORKS) {
-        srand(0); 
-        const float pi = 3.14159;  
+        srand(0);
+        const float pi = 3.14159;
         numCircles = NUM_FIREWORKS + NUM_FIREWORKS * NUM_SPARKS;
 
-        position = new float[3 * numCircles]; 
-        color = new float[3 * numCircles]; 
+        position = new float[3 * numCircles];
+        color = new float[3 * numCircles];
         radius = new float[numCircles];
         velocity = new float[3 * numCircles];
-       
+
         // choose positions for the fire-works
-        for (int i = 0; i < NUM_FIREWORKS; i++) { 
-            int index3i = 3 * i; 
-            radius[i] = 0.005f; 
-            
+        for (int i = 0; i < NUM_FIREWORKS; i++) {
+            int index3i = 3 * i;
+            radius[i] = 0.005f;
+
             // invisible (white)
-            color[index3i] = 1.f; 
-            color[index3i+1] = 1.f; 
+            color[index3i] = 1.f;
+            color[index3i+1] = 1.f;
             color[index3i+2] = 1.f;
 
             // random position
-            position[index3i] = randomFloat(); 
-            position[index3i+1] = randomFloat(); 
-            position[index3i+2] = 0.0f; 
+            position[index3i] = randomFloat();
+            position[index3i+1] = randomFloat();
+            position[index3i+2] = 0.0f;
 
             // choose starting positions for sparks
             for (int j = 0; j < NUM_SPARKS; j++) {
-                int sIdx = NUM_FIREWORKS + i * NUM_SPARKS + j;  
-                int index3j = 3 * sIdx; 
-                radius[sIdx] = 0.01f; 
+                int sIdx = NUM_FIREWORKS + i * NUM_SPARKS + j;
+                int index3j = 3 * sIdx;
+                radius[sIdx] = 0.01f;
                 // cycle in colors
-                color[index3j] = color[index3j+1] = color[index3j+2] = 0.0f; 
-                if (i % 3 == 0) color[index3j] = 1.f;  
+                color[index3j] = color[index3j+1] = color[index3j+2] = 0.0f;
+                if (i % 3 == 0) color[index3j] = 1.f;
                 if (i % 3 == 1) color[index3j+1] = 1.f;
-                if (i % 3 == 2) color[index3j+2] = 1.f; 
+                if (i % 3 == 2) color[index3j+2] = 1.f;
 
                 // random starting position on fire-work's rim
                 // starting position on fire-work's rim is function of PI/spark index
                 float angle = (j * 2 * pi)/NUM_SPARKS;
-                
-                float sinA = sin(angle); 
-                float cosA = cos(angle); 
-                float x = cosA * radius[i]; 
-                float y = sinA * radius[i]; 
 
-                position[index3j] = position[index3i] + x; 
-                position[index3j+1] = position[index3i+1] + y; 
-                position[index3j+2] = 0.0f; 
+                float sinA = sin(angle);
+                float cosA = cos(angle);
+                float x = cosA * radius[i];
+                float y = sinA * radius[i];
+
+                position[index3j] = position[index3i] + x;
+                position[index3j+1] = position[index3i+1] + y;
+                position[index3j+2] = 0.0f;
 
                 // travel scaled unit length
-                velocity[index3j] = cosA/5.0;  
-                velocity[index3j+1] = sinA/5.0; 
+                velocity[index3j] = cosA/5.0;
+                velocity[index3j+1] = sinA/5.0;
                 velocity[index3j+2] = 0.0f;
             }
         }
@@ -447,7 +447,7 @@ loadCircleScene(
         changeCircles(changeNum, (position+startIdx * 3), (radius+startIdx), MICRO_RADIUS, .85f, .1f);
 
     } else if (sceneName == LITTLE_BIG) {
-       
+
         const float BIG_RADIUS = .25f;
         const float MICRO_RADIUS = .05f;
 
@@ -463,7 +463,7 @@ loadCircleScene(
         int startIdx = 9 * 1000;
         int changeNum = 1 * 1000;
         changeCircles(changeNum, (position+startIdx * 3), (radius+startIdx), MICRO_RADIUS, .05f, .1f);
-    
+
     } else if (sceneName == CIRCLE_TEST_10K) {
 
         // test scene containing 10K randomily placed circles
