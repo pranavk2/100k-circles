@@ -63,9 +63,11 @@ int main(int argc, char** argv)
 
     printCudaInfo();
 
+    //
     for (int i=0; i<3; i++) {
       saxpyCuda(N, alpha, xarray, yarray, resultarray);
     }
+    //*/
 
     delete [] xarray;
     delete [] yarray;
