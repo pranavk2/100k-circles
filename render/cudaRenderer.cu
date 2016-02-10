@@ -427,11 +427,10 @@ __global__ void kernelRenderPixels() {
 
 
 
-
-    __shared__ int A[1000];
+    __shared__ int A[100];
     __shared__ int K;
-
     K = 0;
+
     // for all pixels in the bonding box
     if (threadIdx.x == 0 && threadIdx.y == 0) {
 
@@ -451,7 +450,7 @@ __global__ void kernelRenderPixels() {
 
     for (int i=0; i < K; i++) {
         float3 p = *(float3*)&(cuConstRendererParams.position[3 * A[i]]);
-        shadePixel(i, pixelCenterNorm, p, imgPtr);
+        shadePixel(A[i], pixelCenterNorm, p, imgPtr);
     }
 
 
