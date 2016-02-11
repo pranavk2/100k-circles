@@ -391,7 +391,7 @@ shadePixel(int circleIndex, float2 pixelCenter, float3 p, float4* imagePtr) {
 // Each thread renders a circle.  Since there is no protection to
 // ensure order of update or mutual exclusion on the output image, the
 // resulting image will be incorrect.
-__global__ void kernelRenderPixels() {
+__global__ void kernelRenderPixels16() {
 
     int imageWidth = cuConstRendererParams.imageWidth;
     int imageHeight = cuConstRendererParams.imageHeight;
@@ -399,6 +399,7 @@ __global__ void kernelRenderPixels() {
 
     int minX = blockIdx.x * blockDim.x; // inclusive
     int minY = blockIdx.y * blockDim.y; // inclusive
+
     int maxX = min(imageWidth, minX + blockDim.x); // exclusive
     int maxY = min(imageHeight, minY + blockDim.y); // exclusive
 
@@ -426,7 +427,6 @@ __global__ void kernelRenderPixels() {
     float boxT = invHeight * static_cast<float>(minY);
 
     __shared__ uint A[256]; // 0/1 array
-    // __shared__ float3 B[256]; // circle positions
     __shared__ uint C[256]; // scanned result
     __shared__ uint scratch[512];
     __shared__ uint E[256]; // local circle indices (each between 0 ~ 255)
@@ -438,8 +438,8 @@ __global__ void kernelRenderPixels() {
         if (idx+k < numCircles) {
             // for circle idx+k
             float3 p = *(float3*)&(cuConstRendererParams.position[3 * (idx+k)]);
-            float radius = cuConstRendererParams.radius[idx +  k];
-            A[idx] = circleInBoxConservative(p.x, p.y, radius, boxL, boxR, boxB, boxT);
+            float radius = cuConstRendererParams.radius[idx+k];
+            A[idx] = circleInBox(p.x, p.y, radius, boxL, boxR, boxB, boxT);
         } else {
             A[idx] = 0;
         }
@@ -456,7 +456,7 @@ __global__ void kernelRenderPixels() {
         }
         __syncthreads();
 
-        for (int i=0; i<C[255]+A[255]; i++) {
+        for (int i=0; i< C[255]+A[255]; i++) {
             int localIdx = E[i];
             float3 p = *(float3*)&(cuConstRendererParams.position[3 * (localIdx+k)]);
             shadePixel(localIdx+k, pixelCenterNorm, p, imgPtr);
@@ -467,6 +467,101 @@ __global__ void kernelRenderPixels() {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+__global__ void kernelRenderPixels32() {
+
+    int imageWidth = cuConstRendererParams.imageWidth;
+    int imageHeight = cuConstRendererParams.imageHeight;
+    int numCircles = cuConstRendererParams.numCircles;
+
+    int minX = blockIdx.x * blockDim.x; // inclusive
+    int minY = blockIdx.y * blockDim.y; // inclusive
+
+    int maxX = min(imageWidth, minX + blockDim.x); // exclusive
+    int maxY = min(imageHeight, minY + blockDim.y); // exclusive
+
+    // int maxX = (blockIdx.x + 1) * blockDim.x ; // exclusive
+    // int maxY = (blockIdx.y + 1) * blockDim.y ; // exclusive
+
+    int pixelX = minX + threadIdx.x;
+    int pixelY = minY + threadIdx.y;
+
+    if (pixelX >= maxX || pixelY >= maxY ) {
+        return;
+    }
+
+    float invWidth = 1.f / imageWidth;
+    float invHeight = 1.f / imageHeight;
+
+    float2 pixelCenterNorm = make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
+                                         invHeight * (static_cast<float>(pixelY) + 0.5f));
+
+    float4* imgPtr = (float4*)(&cuConstRendererParams.imageData[4 * (pixelY * imageWidth + pixelX)]);
+
+    float boxL = invWidth * static_cast<float>(minX);
+    float boxR = invWidth * static_cast<float>(maxX);
+    float boxB = invHeight * static_cast<float>(maxY);
+    float boxT = invHeight * static_cast<float>(minY);
+
+    __shared__ uint A[1024]; // 0/1 array
+    __shared__ uint C[1024]; // scanned result
+    __shared__ uint scratch[2048];
+    __shared__ uint E[1024]; // local circle indices (each between 0 ~ 255)
+
+    int idx = threadIdx.y * 32 + threadIdx.x; // 0 ~ 255
+
+    for (int k=0; k < numCircles; k += 1024) {
+
+        if (idx+k < numCircles) {
+            // for circle idx+k
+            float3 p = *(float3*)&(cuConstRendererParams.position[3 * (idx+k)]);
+            float radius = cuConstRendererParams.radius[idx +  k];
+            A[idx] = circleInBox(p.x, p.y, radius, boxL, boxR, boxB, boxT);
+        } else {
+            A[idx] = 0;
+        }
+        __syncthreads();
+
+        sharedMemExclusiveScan(idx, A, C, scratch, 1024);
+
+        __syncthreads();
+
+        if (idx < 1023 && C[idx] != C[idx+1]) {
+            E[C[idx]] = idx;
+        } else if (idx == 1023 && A[1023] == 1) {
+            E[C[1023]] = 1023;
+        }
+        __syncthreads();
+
+        for (int i=0; i< C[1023]+A[1023]; i++) {
+            int localIdx = E[i];
+            float3 p = *(float3*)&(cuConstRendererParams.position[3 * (localIdx+k)]);
+            shadePixel(localIdx+k, pixelCenterNorm, p, imgPtr);
+        }
+        // __syncthreads();
+    }
+}
 
 
 
@@ -715,24 +810,20 @@ CudaRenderer::advanceAnimation() {
 void
 CudaRenderer::render() {
 
-    int imageWidth = image->width;
-    int imageHeight = image->height;
+    if (numCircles < 100) {
+        dim3 blockDim(16, 16, 1);
+        dim3 gridDim(
+            (image->width + blockDim.x - 1) / blockDim.x,
+            (image->height + blockDim.y - 1) / blockDim.y);
+        kernelRenderPixels16<<<gridDim, blockDim>>>();
+    } else {
+        dim3 blockDim(32, 32, 1);
+        dim3 gridDim(
+            (image->width + blockDim.x - 1) / blockDim.x,
+            (image->height + blockDim.y - 1) / blockDim.y);
+        kernelRenderPixels32<<<gridDim, blockDim>>>();
+    }
 
-    int numPixels = imageWidth * imageHeight;
-
-    printf("imageWidth = %d\n", imageWidth);
-    printf("imageHeight = %d\n", imageHeight);
-    printf("numPixels = %d\n", numPixels);
-
-    // threadsPerBlock : 256 threads per block is a healthy number
-    dim3 blockDim(16, 16, 1);
-
-    dim3 gridDim(
-        (image->width + blockDim.x - 1) / blockDim.x,
-        (image->height + blockDim.y - 1) / blockDim.y);
-
-    // kernel for each pixel
-    kernelRenderPixels<<<gridDim, blockDim>>>();
     cudaThreadSynchronize();
 
 }

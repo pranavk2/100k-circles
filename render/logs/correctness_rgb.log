@@ -1,0 +1,21 @@
+Rendering to 768x768 image
+Loaded scene with 3 circles
+Loaded scene with 3 circles
+---------------------------------------------------------
+Initializing CUDA for CudaRenderer
+Found 1 CUDA devices
+Device 0: GeForce GTX 780
+   SMs:        12
+   Global mem: 3071 MB
+   CUDA Cap:   3.5
+---------------------------------------------------------
+
+Running benchmark, 1 frames, beginning at frame 0 ...
+Copying image data from device
+***************** Correctness check passed **************************
+Clear:    0.0919 ms
+Advance:  0.0015 ms
+Render:   0.1531 ms
+Total:    0.2465 ms
+
+Overall:  0.0168 sec (note units are seconds)
